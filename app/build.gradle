@@ -28,10 +28,7 @@ android {
     }
     splits { 
         abi { 
-            enable(true)
-            reset()
-            include('riscv64')
-            universalApk(true)
+            enable(false)
         }
     }
     android.applicationVariants.configureEach { java.lang.Object variant ->
