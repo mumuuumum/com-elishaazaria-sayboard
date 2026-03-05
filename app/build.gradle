@@ -1,129 +1,149 @@
-apply(['plugin': 'com.android.application'])
-apply(['plugin': 'com.google.protobuf'])
-apply(['plugin': 'org.jetbrains.kotlin.android'])
-apply(['plugin': 'org.jetbrains.kotlin.plugin.serialization'])
-apply(['plugin': 'com.mikepenz.aboutlibraries.plugin'])
-android { 
-    ndkVersion('23.2.0')
-    compileSdk(34)
-    defaultConfig { 
-        externalNativeBuild { 
-            ndk { 
-                abiFilters('riscv64')
-            }
-        }
+apply plugin: 'com.android.application'
+apply plugin: 'com.google.protobuf'
+apply plugin: 'org.jetbrains.kotlin.android'
+apply plugin: 'org.jetbrains.kotlin.plugin.serialization'
+apply plugin: 'com.mikepenz.aboutlibraries.plugin'
+
+android {
+    ndkVersion '23.2.0'
+    compileSdk 34
+
+    defaultConfig {
         applicationId "com.elishaazaria.sayboard"
-        minSdkVersion(29)
-        targetSdkVersion(34)
-        versionCode(402010)
-        versionName('v4.2.1')
-        ndkVersion('23.2.0')
-    }
-    buildTypes { 
-        release { 
-            minifyEnabled(true)
-            shrinkResources(true)
-            proguardFiles(getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro')
+        minSdk 29
+        targetSdk 34
+        versionCode 402010
+        versionName 'v4.2.1'
+
+        // 只构建 riscv64 的 native 库（vosk-android 等依赖）
+        ndk {
+            abiFilters 'riscv64'
         }
     }
-    splits { 
-        abi { 
-            enable(false)
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
-    android.applicationVariants.configureEach { java.lang.Object variant ->
-        variant.outputs.configureEach { java.lang.Object output ->
-            java.lang.Object abi_name = output.getFilter(output.ABI) ? output.getFilter(output.ABI) : 'Universal'
-            output.outputFileName = "Sayboard_$abi_name.apk"
+
+    // 禁用 ABI splits（因为只支持一个 ABI，不需要 split，也避免冲突）
+    splits {
+        abi {
+            enable false
         }
     }
-    compileOptions { 
-        sourceCompatibility(JavaVersion.VERSION_1_8)
-        targetCompatibility(JavaVersion.VERSION_1_8)
+
+    // 自定义输出文件名（因为只 riscv64，不再有 'Universal'，但保留逻辑以防万一）
+    applicationVariants.configureEach { variant ->
+        variant.outputs.configureEach { output ->
+            def abiName = output.getFilter(output.ABI) ?: 'riscv64'
+            output.outputFileName = "Sayboard_${abiName}.apk"
+        }
     }
-    kotlinOptions { 
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
         jvmTarget = '1.8'
     }
-    buildFeatures { 
-        viewBinding(true)
-        compose(true)
+
+    buildFeatures {
+        viewBinding true
+        compose true
     }
-    composeOptions { 
-        kotlinCompilerExtensionVersion = '1.5.3'
+
+    composeOptions {
+        kotlinCompilerExtensionVersion '1.5.3'
     }
-    namespace('com.elishaazaria.sayboard')
-    packagingOptions { 
-        resources { 
+
+    namespace 'com.elishaazaria.sayboard'
+
+    packagingOptions {
+        resources {
             excludes += '/META-INF/{AL2.0,LGPL2.1}'
         }
     }
-    lint { 
-        lintConfig = file('app/lint.xml')
+
+    lint {
+        lintConfig file('app/lint.xml')
     }
 }
+
+// 因为只支持 riscv64，versionCodeOverride 可以简化或删除（可选保留原逻辑，但现在基本不会触发）
 ext.abiCodes = ['riscv64': 1]
-android.applicationVariants.configureEach { java.lang.Object variant ->
-    variant.outputs.each { java.lang.Object output ->
-        java.lang.Object variantVersionCode = project.ext.abiCodes.get(output.getFilter(output.ABI))
-        if (variantVersionCode != null) {
-            output.versionCodeOverride = variant.versionCode + variantVersionCode 
+android.applicationVariants.configureEach { variant ->
+    variant.outputs.configureEach { output ->
+        def abiFilter = output.getFilter(output.ABI)
+        def override = project.ext.abiCodes.get(abiFilter)
+        if (override != null) {
+            output.versionCodeOverride = variant.versionCode + override
         }
     }
 }
-protobuf { 
-    protoc { 
+
+protobuf {
+    protoc {
         artifact = 'com.google.protobuf:protoc:3.24.4'
     }
-    plugins { 
-        grpc { 
+    plugins {
+        grpc {
             artifact = 'io.grpc:protoc-gen-grpc-java:1.52.0'
         }
     }
-    generateProtoTasks { 
-        all().each { java.lang.Object task ->
-            task.builtins { 
-                java { 
-                    option('lite')
+    generateProtoTasks {
+        all().each { task ->
+            task.builtins {
+                java {
+                    option 'lite'
                 }
             }
-            task.plugins { 
-                grpc { 
-                    option('lite')
+            task.plugins {
+                grpc {
+                    option 'lite'
                 }
             }
         }
     }
 }
-dependencies { 
-    implementation('androidx.appcompat:appcompat:1.6.1')
-    implementation('net.java.dev.jna:jna:5.13.0@aar')
-    implementation('com.alphacephei:vosk-android:0.3.32')
-    implementation('androidx.constraintlayout:constraintlayout:2.1.4')
-    implementation('com.google.android.material:material:1.11.0')
-    implementation('androidx.lifecycle:lifecycle-livedata-ktx:2.7.0')
-    implementation('org.greenrobot:eventbus:3.3.1')
-    implementation('dev.gustavoavila:java-android-websocket-client:2.0.1')
-    implementation('io.grpc:grpc-okhttp:1.52.0')
-    implementation('io.grpc:grpc-protobuf-lite:1.52.0')
-    implementation('io.grpc:grpc-stub:1.52.0')
-    compileOnly('org.apache.tomcat:annotations-api:6.0.53')
-    implementation('org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.0')
-    implementation('org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0')
-    implementation('dev.patrickgold.jetpref:jetpref-datastore-model:0.1.0-beta14')
-    implementation('dev.patrickgold.jetpref:jetpref-datastore-ui:0.1.0-beta14')
-    implementation('dev.patrickgold.jetpref:jetpref-material-ui:0.1.0-beta14')
-    implementation('org.burnoutcrew.composereorderable:reorderable:0.9.6')
-    java.lang.Object composeBom = platform('androidx.compose:compose-bom:2023.10.00')
-    implementation(composeBom)
-    androidTestImplementation(composeBom)
-    implementation('androidx.compose.material:material')
-    implementation('androidx.compose.ui:ui-tooling-preview')
-    debugImplementation('androidx.compose.ui:ui-tooling')
-    androidTestImplementation('androidx.compose.ui:ui-test-junit4')
-    debugImplementation('androidx.compose.ui:ui-test-manifest')
-    implementation('androidx.compose.material:material-icons-extended')
-    implementation('androidx.compose.material3:material3-window-size-class')
-    implementation('androidx.activity:activity-compose:1.8.2')
-    implementation('androidx.compose.runtime:runtime-livedata')
-    implementation('com.mikepenz:aboutlibraries-compose:11.1.4')
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'net.java.dev.jna:jna:5.13.0@aar'
+    implementation 'com.alphacephei:vosk-android:0.3.32'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.7.0'
+    implementation 'org.greenrobot:eventbus:3.3.1'
+    implementation 'dev.gustavoavila:java-android-websocket-client:2.0.1'
+    implementation 'io.grpc:grpc-okhttp:1.52.0'
+    implementation 'io.grpc:grpc-protobuf-lite:1.52.0'
+    implementation 'io.grpc:grpc-stub:1.52.0'
+    compileOnly 'org.apache.tomcat:annotations-api:6.0.53'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0'
+    implementation 'dev.patrickgold.jetpref:jetpref-datastore-model:0.1.0-beta14'
+    implementation 'dev.patrickgold.jetpref:jetpref-datastore-ui:0.1.0-beta14'
+    implementation 'dev.patrickgold.jetpref:jetpref-material-ui:0.1.0-beta14'
+    implementation 'org.burnoutcrew.composereorderable:reorderable:0.9.6'
+
+    def composeBom = platform('androidx.compose:compose-bom:2023.10.00')
+    implementation composeBom
+    androidTestImplementation composeBom
+
+    implementation 'androidx.compose.material:material'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+    debugImplementation 'androidx.compose.ui:ui-tooling'
+    androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
+    debugImplementation 'androidx.compose.ui:ui-test-manifest'
+    implementation 'androidx.compose.material:material-icons-extended'
+    implementation 'androidx.compose.material3:material3-window-size-class'
+    implementation 'androidx.activity:activity-compose:1.8.2'
+    implementation 'androidx.compose.runtime:runtime-livedata'
+    implementation 'com.mikepenz:aboutlibraries-compose:11.1.4'
 }
